@@ -595,7 +595,7 @@
                 // ==============================================
                 const { data: users, error } = await supabaseClient
                     .from('users')
-                    .select('id, username, password, user_type, full_name')
+                    .select('id, username, password, user_type')
                     .eq('username', userName)
                     .eq('password', password); // ملاحظة: في التطبيق الحقيقي، يجب تشفير كلمة المرور
 
@@ -622,7 +622,6 @@
                 sessionStorage.setItem('user', JSON.stringify({
                     id: user.id,
                     username: user.username,
-                    full_name: user.full_name || user.username,
                     user_type: userType
                 }));
 

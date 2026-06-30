@@ -443,7 +443,7 @@
 
             <form id="login-form">
                 <div class="form-group">
-                    <label for="username">الاسم</label>
+                    <label for="username">اسم المستخدم</label>
                     <div class="input-wrapper">
                         <span class="input-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -451,7 +451,7 @@
                                 <circle cx="12" cy="7" r="4"/>
                             </svg>
                         </span>
-                        <input type="text" id="username" placeholder="أدخل اسمك" autocomplete="username" required>
+                        <input type="text" id="username" placeholder="أدخل اسم المستخدم" autocomplete="username" required>
                     </div>
                 </div>
 
@@ -582,7 +582,7 @@
             const password = passwordInput.value.trim();
 
             if (!userName || !password) {
-                showError('يرجى إدخال الاسم وكلمة المرور.');
+                showError('يرجى إدخال اسم المستخدم وكلمة المرور.');
                 return;
             }
 
@@ -591,13 +591,13 @@
 
             try {
                 // ==============================================
-                // 6. التحقق من تسجيل الدخول عبر دالة RPC
+                // 6. الاستعلام من جدول users مباشرة
                 // ==============================================
-                const { data, error } = await supabaseClient
-                    .rpc('login_by_username', {
-                        p_username: userName,
-                        p_password: password
-                    });
+                const { data: users, error } = await supabaseClient
+                    .from('users')
+                    .select('id, username, password, user_type, full_name')
+                    .eq('username', userName)
+                    .eq('password', password); // ملاحظة: في التطبيق الحقيقي، يجب تشفير كلمة المرور
 
                 if (error) {
                     console.error('Supabase error:', error);
@@ -605,27 +605,28 @@
                     return;
                 }
 
-                // rpc بهذا التعريف يرجع مصفوفة (table function)
-                const result = Array.isArray(data) ? data[0] : data;
-
-                if (!result) {
-                    showError('❌ الاسم أو كلمة المرور غير صحيحة.');
+                // التحقق من وجود المستخدم
+                if (!users || users.length === 0) {
+                    showError('❌ اسم المستخدم أو كلمة المرور غير صحيحة.');
                     return;
                 }
+
+                const user = users[0];
 
                 // ==============================================
                 // 7. تسجيل الدخول ناجح ✅
                 // ==============================================
-                const userType = result.user_type; // 'worker' | 'consumer' | 'admin' | 'data_entry' | 'manager'
+                const userType = user.user_type || 'consumer'; // إذا لم يحدد النوع، نعتبره مستهلك
 
+                // حفظ بيانات المستخدم في sessionStorage
                 sessionStorage.setItem('user', JSON.stringify({
-                    id: result.id,
-                    user_code: result.user_code,
-                    username: result.username,
+                    id: user.id,
+                    username: user.username,
+                    full_name: user.full_name || user.username,
                     user_type: userType
                 }));
 
-                console.log('✅ تسجيل الدخول ناجح! المستخدم:', result.username, 'النوع:', userType);
+                console.log('✅ تسجيل الدخول ناجح! المستخدم:', user.username, 'النوع:', userType);
 
                 // ==============================================
                 // 8. التوجيه حسب نوع المستخدم
@@ -643,8 +644,11 @@
                 if (redirectUrl) {
                     window.location.href = redirectUrl;
                 } else {
-                    showError('⚠️ نوع المستخدم غير معروف. تواصل مع الدعم.');
-                    console.warn('⚠️ نوع مستخدم غير معروف:', userType);
+                    // إذا كان النوع غير معروف، نوجه إلى الصفحة الرئيسية أو لوحة التحكم العامة
+                    showError('⚠️ نوع المستخدم غير معروف. سيتم توجيهك إلى الصفحة الرئيسية.');
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 2000);
                 }
 
             } catch (err) {
@@ -667,6 +671,7 @@
         // ========================
         console.log('✅ نظام تسجيل الدخول مع Supabase جاهز.');
         console.log('📌 أنواع المستخدمين المدعومة: admin, worker, consumer, data_entry, manager');
+        console.log('📌 يتم الاستعلام من جدول: users');
         
         if (window.location.protocol === 'file:') {
             console.warn('⚠️ تنبيه: أنت تشغل هذا الملف محلياً (file://). قد لا تعمل بعض الميزات بشكل صحيح.');
